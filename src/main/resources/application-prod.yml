@@ -1,0 +1,14 @@
+spring:
+  redis:
+    host: ${REDIS_HOST}  # Read from environment variable
+    port: ${REDIS_PORT}
+    password: ${REDIS_PASSWORD}
+    ssl:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}  # Default to 8080 if not set
+
+logging:
+  level:
+    com.deliverytracker: INFO  # Less verbose in production
