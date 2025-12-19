@@ -1,6 +1,6 @@
-
 package com.untitleddelivery.service;
 
+import com.untitleddelivery.config.LocationWebSocketHandler;
 import com.untitleddelivery.model.CourierLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +17,16 @@ public class LocationService {
 
   private static final Logger log = LoggerFactory.getLogger(LocationService.class);
   private final RedisTemplate<String, Object> redisTemplate;
+  private final LocationWebSocketHandler webSocketHandler;
   private static final String LOCATION_KEY_PREFIX = "courier:location:";
   private static final int LOCATION_TTL_MINUTES = 5;
 
   private final ObjectMapper objectMapper;
 
-  public LocationService(RedisTemplate<String, Object> redisTemplate) {
+  public LocationService(RedisTemplate<String, Object> redisTemplate,
+      LocationWebSocketHandler webSocketHandler) {
     this.redisTemplate = redisTemplate;
+    this.webSocketHandler = webSocketHandler;
 
     // Configure ObjectMapper for Instant serialization/deserialization
     this.objectMapper = new ObjectMapper();
@@ -36,9 +39,15 @@ public class LocationService {
 
     log.info("Updating location for courier: {}", location.getCourierId());
 
+    // Store in Valkey
     redisTemplate.opsForValue().set(key, location, LOCATION_TTL_MINUTES, TimeUnit.MINUTES);
 
     log.debug("Location stored in Valkey: {}", key);
+
+    // Broadcast to WebSocket clients
+    webSocketHandler.broadcast(location);
+
+    log.info("📡 Location broadcasted via WebSocket");
   }
 
   public CourierLocation getCourierLocation(String courierId) {
