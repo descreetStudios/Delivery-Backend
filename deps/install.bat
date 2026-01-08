@@ -17,7 +17,7 @@ call install.bat
 cd..
 
 cd Redis-Windows/
-install.bat
-install_redis_service
+call install.bat
+call install_redis_service
 call set_path.bat
 cd..
