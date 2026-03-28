@@ -40,6 +40,7 @@ public class LocationController {
 			: ResponseEntity.notFound().build();
 	}
 
+	/*
 	@GetMapping("/courier/{courierId}/with-order")
 	public ResponseEntity<Object> getCourierLocationWithOrder(
 		@PathVariable String courierId
@@ -63,4 +64,5 @@ public class LocationController {
 			Map.of("location", location, "order", orderItems)
 		);
 	}
+	*/
 }
