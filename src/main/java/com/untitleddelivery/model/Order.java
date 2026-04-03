@@ -2,6 +2,8 @@ package com.untitleddelivery.model;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Order implements Serializable {
     private String orderId;
@@ -12,6 +14,8 @@ public class Order implements Serializable {
     private String associatedCourierId;
     private Instant createdAt;
     private String status; // PENDING, ASSIGNED, DELIVERING, COMPLETED, CANCELLED
+    private List<OrderItem> items;
+    private double totalPrice;
 
     public Order() {
     }
@@ -25,6 +29,8 @@ public class Order implements Serializable {
         this.deliveryLongitude = deliveryLongitude;
         this.createdAt = Instant.now();
         this.status = "PENDING";
+        this.items = new ArrayList<>();
+        this.totalPrice = 0.0;
     }
 
     public String getOrderId() {
@@ -89,5 +95,21 @@ public class Order implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<OrderItem> items) {
+        this.items = items;
+    }
+
+    public double getTotalPrice() {
+        return totalPrice;
+    }
+
+    public void setTotalPrice(double totalPrice) {
+        this.totalPrice = totalPrice;
     }
 }

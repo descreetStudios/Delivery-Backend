@@ -1,14 +1,15 @@
 package com.untitleddelivery.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.untitleddelivery.model.CourierLocation;
+import com.untitleddelivery.service.LocationService;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -34,10 +35,19 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 	private final Map<String, WebSocketSession> sessions =
 		new ConcurrentHashMap<>();
 
-	private final ObjectMapper objectMapper;
+	// Session ID -> Courier ID (for couriers sending location updates)
+	private final Map<String, String> sessionCourierIds =
+		new ConcurrentHashMap<>();
 
-	public LocationWebSocketHandler(ObjectMapper objectMapper) {
+	private final ObjectMapper objectMapper;
+	private final LocationService locationService;
+
+	public LocationWebSocketHandler(
+		ObjectMapper objectMapper,
+		@Lazy LocationService locationService
+	) {
 		this.objectMapper = objectMapper;
+		this.locationService = locationService;
 	}
 
 	@Override
@@ -50,7 +60,7 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		log.info(
 			"✅ WebSocket connection established: {} (Total connections: {})",
 			session.getId(),
-			sessionSubscriptions.size()
+			sessions.size()
 		);
 	}
 
@@ -69,13 +79,16 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 			);
 		}
 
+		// Remove courier->session mapping if this session was a courier
+		sessionCourierIds.remove(session.getId());
+
 		// Remove the session from our sessions map
 		sessions.remove(session.getId());
 
 		log.info(
 			"🔌 WebSocket connection closed: {} (Total connections: {})",
 			session.getId(),
-			sessionSubscriptions.size()
+			sessions.size()
 		);
 	}
 
@@ -88,7 +101,6 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		log.debug("Received message from {}: {}", session.getId(), payload);
 
 		try {
-			// Parse the incoming message to determine its type
 			Map<String, Object> messageMap = objectMapper.readValue(
 				payload,
 				Map.class
@@ -99,6 +111,8 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 				handleSubscribe(session, messageMap);
 			} else if ("unsubscribe".equals(type)) {
 				handleUnsubscribe(session, messageMap);
+			} else if ("location_update".equals(type)) {
+				handleLocationUpdate(session, messageMap);
 			} else {
 				log.warn("Unknown message type: {}", type);
 			}
@@ -185,6 +199,58 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 	}
 
 	/**
+	 * Handle a courier sending a location update via WebSocket.
+	 * The message must contain courierId, latitude, longitude.
+	 * Optional: heading, timestamp, status.
+	 */
+	private void handleLocationUpdate(
+		WebSocketSession session,
+		Map<String, Object> messageMap
+	) {
+		String courierId = (String) messageMap.get("courierId");
+		if (courierId == null || courierId.trim().isEmpty()) {
+			log.warn("Location update missing courierId from session: {}", session.getId());
+			return;
+		}
+
+		Number latNum = (Number) messageMap.get("latitude");
+		Number lngNum = (Number) messageMap.get("longitude");
+		if (latNum == null || lngNum == null) {
+			log.warn("Location update missing coordinates for courier: {}", courierId);
+			return;
+		}
+
+		Number headingNum = (Number) messageMap.get("heading");
+		double heading = headingNum != null ? headingNum.doubleValue() : 0.0;
+
+		String timestampStr = (String) messageMap.get("timestamp");
+		java.time.Instant timestamp = timestampStr != null
+			? java.time.Instant.parse(timestampStr)
+			: java.time.Instant.now();
+
+		String status = (String) messageMap.get("status");
+		if (status == null) status = "ONLINE";
+
+		CourierLocation location = new CourierLocation(
+			courierId,
+			latNum.doubleValue(),
+			lngNum.doubleValue(),
+			heading,
+			timestamp,
+			status,
+			null
+		);
+
+		// Track which courier this session belongs to
+		sessionCourierIds.put(session.getId(), courierId);
+
+		log.info("📍 Courier {} sending location update via WebSocket", courierId);
+
+		// Store and broadcast to subscribers
+		locationService.updateCourierLocation(location);
+	}
+
+	/**
 	 * Broadcast location update to clients subscribed to a specific courier
 	 */
 	public void broadcastToCourier(String courierId, Object locationData) {
@@ -240,12 +306,15 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 	}
 
 	/**
-	 * Broadcast location update to all subscribed clients (for backward compatibility)
+	 * Broadcast location update to clients subscribed to the courier
+	 * associated with the given CourierLocation.
 	 */
-	public void broadcast(Object locationData) {
-		// For now, we'll just log that this method is being called
-		// The actual implementation would depend on how you want to broadcast
-		// This method might be called from LocationService but isn't fully implemented yet
-		log.info("Broadcast called with data: {}", locationData);
+	public void broadcast(CourierLocation location) {
+		String courierId = location.getCourierId();
+		if (courierId == null || courierId.isBlank()) {
+			log.warn("Cannot broadcast: CourierLocation has no courierId");
+			return;
+		}
+		broadcastToCourier(courierId, location);
 	}
 }

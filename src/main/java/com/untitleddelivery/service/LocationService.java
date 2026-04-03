@@ -27,6 +27,11 @@ public class LocationService {
 	private static final String ORDER_KEY_PREFIX = "order:";
 	private static final int ORDER_TTL_MINUTES = 60;
 
+	// Distributed lock keys for atomic courier-order assignment
+	private static final String ASSIGNMENT_LOCK_COURIER_PREFIX = "courier:lock:assignment:";
+	private static final String ASSIGNMENT_LOCK_ORDER_PREFIX = "order:lock:assignment:";
+	private static final int ASSIGNMENT_LOCK_TTL_SECONDS = 10;
+
 	private final ObjectMapper objectMapper;
 
 	public LocationService(
@@ -49,12 +54,12 @@ public class LocationService {
 
 		log.info("Updating location for courier: {}", location.getCourierId());
 
-		// Store in Valkey
+		// Store in Redis
 		redisTemplate
 			.opsForValue()
 			.set(key, location, LOCATION_TTL_MINUTES, TimeUnit.MINUTES);
 
-		log.debug("Location stored in Valkey: {}", key);
+		log.debug("Location stored in Redis: {}", key);
 
 		// Broadcast to WebSocket clients
 		webSocketHandler.broadcast(location);
@@ -112,38 +117,76 @@ public class LocationService {
 	}
 
 	public void assignCourierToOrder(String orderId, String courierId) {
-		// Check if the courier already has an order assigned
-		CourierLocation existingLocation = getCourierLocation(courierId);
-		if (
-			existingLocation != null &&
-			existingLocation.getAssociatedOrderId() != null
-		) {
-			log.warn(
-				"Courier {} already has order {} assigned",
-				courierId,
-				existingLocation.getAssociatedOrderId()
-			);
-			return;
+		String courierLockKey = ASSIGNMENT_LOCK_COURIER_PREFIX + courierId;
+		String orderLockKey = ASSIGNMENT_LOCK_ORDER_PREFIX + orderId;
+
+		// Atomically acquire lock on courier (SETNX with TTL)
+		Boolean courierLocked = redisTemplate
+			.opsForValue()
+			.setIfAbsent(courierLockKey, "1", ASSIGNMENT_LOCK_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+
+		if (Boolean.FALSE.equals(courierLocked)) {
+			log.warn("Courier {} is already being assigned to another order", courierId);
+			throw new IllegalStateException("Courier " + courierId + " is already being assigned");
 		}
 
-		Order order = getOrder(orderId);
-		if (order == null) {
-			log.warn("Cannot assign courier - order not found: {}", orderId);
-			return;
+		try {
+			// Atomically acquire lock on order (SETNX with TTL)
+			Boolean orderLocked = redisTemplate
+				.opsForValue()
+				.setIfAbsent(orderLockKey, "1", ASSIGNMENT_LOCK_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+
+			if (Boolean.FALSE.equals(orderLocked)) {
+				log.warn("Order {} is already being assigned to another courier", orderId);
+				throw new IllegalStateException("Order " + orderId + " is already being assigned");
+			}
+
+			try {
+				// Check if the courier already has an order assigned
+				CourierLocation existingLocation = getCourierLocation(courierId);
+				if (
+					existingLocation != null &&
+					existingLocation.getAssociatedOrderId() != null
+				) {
+					log.warn(
+						"Courier {} already has order {} assigned",
+						courierId,
+						existingLocation.getAssociatedOrderId()
+					);
+					throw new IllegalStateException("Courier " + courierId + " already has order " + existingLocation.getAssociatedOrderId() + " assigned");
+				}
+
+				Order order = getOrder(orderId);
+				if (order == null) {
+					log.warn("Cannot assign courier - order not found: {}", orderId);
+					throw new IllegalArgumentException("Order not found: " + orderId);
+				}
+
+				if (order.getAssociatedCourierId() != null) {
+					log.warn("Order {} already assigned to courier {}", orderId, order.getAssociatedCourierId());
+					throw new IllegalStateException("Order " + orderId + " already assigned to courier " + order.getAssociatedCourierId());
+				}
+
+				// Update the order with the courier
+				order.setAssociatedCourierId(courierId);
+				createOrder(order);
+
+				// Update the courier's location record with the order ID
+				CourierLocation location = getCourierLocation(courierId);
+				if (location != null) {
+					location.setAssociatedOrderId(orderId);
+					updateCourierLocation(location);
+				}
+
+				log.info("Assigned courier {} to order {}", courierId, orderId);
+			} finally {
+				// Release order lock
+				redisTemplate.delete(orderLockKey);
+			}
+		} finally {
+			// Release courier lock
+			redisTemplate.delete(courierLockKey);
 		}
-
-		// Update the order with the courier
-		order.setAssociatedCourierId(courierId);
-		createOrder(order);
-
-		// Update the courier's location record with the order ID
-		CourierLocation location = getCourierLocation(courierId);
-		if (location != null) {
-			location.setAssociatedOrderId(orderId);
-			updateCourierLocation(location);
-		}
-
-		log.info("Assigned courier {} to order {}", courierId, orderId);
 	}
 
 	public void completeOrder(String orderId, String courierId) {

@@ -12,7 +12,7 @@ public class CourierLocation implements Serializable {
 	private double heading;
 	private Instant timestamp;
 	private String status;
-	private String associatedOrderId; // Optional, most likely we'll just use associatedCourierId
+	private String associatedOrderId; // The order this courier is currently delivering (nullable)
 
 	public CourierLocation() {}
 
