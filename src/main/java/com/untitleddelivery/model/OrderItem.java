@@ -17,7 +17,7 @@ public class OrderItem implements Serializable {
     }
 
     public String getName() {
-        return name;
+        return this.name;
     }
 
     public void setName(String name) {
@@ -25,18 +25,18 @@ public class OrderItem implements Serializable {
     }
 
     public int getQuantity() {
-        return quantity;
+        return this.quantity;
     }
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
 
-    public double getPrice() {
-        return price;
+    public double getPrice () {
+        return this.price;
     }
 
-    public void setPrice(double price) {
+    public void setPrice (double price) {
         this.price = price;
     }
 }

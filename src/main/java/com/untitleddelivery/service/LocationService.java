@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.untitleddelivery.config.LocationWebSocketHandler;
 import com.untitleddelivery.model.CourierLocation;
 import com.untitleddelivery.model.Order;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +17,7 @@ import org.springframework.stereotype.Service;
 public class LocationService {
 
 	private static final Logger log = LoggerFactory.getLogger(
-		LocationService.class
-	);
+		LocationService.class);
 	private final RedisTemplate<String, Object> redisTemplate;
 	private final LocationWebSocketHandler webSocketHandler;
 	private static final String LOCATION_KEY_PREFIX = "courier:location:";
@@ -36,8 +36,7 @@ public class LocationService {
 
 	public LocationService(
 		RedisTemplate<String, Object> redisTemplate,
-		LocationWebSocketHandler webSocketHandler
-	) {
+		LocationWebSocketHandler webSocketHandler) {
 		this.redisTemplate = redisTemplate;
 		this.webSocketHandler = webSocketHandler;
 
@@ -45,8 +44,7 @@ public class LocationService {
 		this.objectMapper = new ObjectMapper();
 		this.objectMapper.registerModule(new JavaTimeModule());
 		this.objectMapper.disable(
-			SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
-		);
+			SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 	}
 
 	public void updateCourierLocation(CourierLocation location) {
@@ -64,7 +62,7 @@ public class LocationService {
 		// Broadcast to WebSocket clients
 		webSocketHandler.broadcast(location);
 
-		log.info("📡 Location broadcasted via WebSocket");
+		log.info("Location broadcasted via WebSocket");
 	}
 
 	public CourierLocation getCourierLocation(String courierId) {
@@ -81,14 +79,18 @@ public class LocationService {
 		// Convert the raw Object to CourierLocation using ObjectMapper
 		CourierLocation location = objectMapper.convertValue(
 			value,
-			CourierLocation.class
-		);
+			CourierLocation.class);
 
 		log.debug("Location found for courier: {}", courierId);
 		return location;
 	}
 
 	public void createOrder(Order order) {
+		if (order.getOrderId() == null) {
+			order.setOrderId(String.valueOf(Instant.now().toEpochMilli()));
+			order.setCreatedAt(Instant.now());
+			order.setStatus("PENDING");
+		}
 		String key = ORDER_KEY_PREFIX + order.getOrderId();
 
 		log.info("Creating order: {}", order.getOrderId());

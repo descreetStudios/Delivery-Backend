@@ -20,9 +20,9 @@ public class Order implements Serializable {
     public Order() {
     }
 
-    public Order(String orderId, double pickupLatitude, double pickupLongitude,
-                 double deliveryLatitude, double deliveryLongitude) {
-        this.orderId = orderId;
+    public Order(double pickupLatitude, double pickupLongitude,
+            double deliveryLatitude, double deliveryLongitude, ArrayList<OrderItem> orderItems, double totalPrice) {
+        this.orderId = String.valueOf(Instant.now().toEpochMilli());
         this.pickupLatitude = pickupLatitude;
         this.pickupLongitude = pickupLongitude;
         this.deliveryLatitude = deliveryLatitude;
@@ -30,11 +30,11 @@ public class Order implements Serializable {
         this.createdAt = Instant.now();
         this.status = "PENDING";
         this.items = new ArrayList<>();
-        this.totalPrice = 0.0;
+        this.totalPrice = totalPrice;
     }
 
     public String getOrderId() {
-        return orderId;
+        return this.orderId;
     }
 
     public void setOrderId(String orderId) {
@@ -42,7 +42,7 @@ public class Order implements Serializable {
     }
 
     public double getPickupLatitude() {
-        return pickupLatitude;
+        return this.pickupLatitude;
     }
 
     public void setPickupLatitude(double pickupLatitude) {
@@ -50,7 +50,7 @@ public class Order implements Serializable {
     }
 
     public double getPickupLongitude() {
-        return pickupLongitude;
+        return this.pickupLongitude;
     }
 
     public void setPickupLongitude(double pickupLongitude) {
@@ -58,7 +58,7 @@ public class Order implements Serializable {
     }
 
     public double getDeliveryLatitude() {
-        return deliveryLatitude;
+        return this.deliveryLatitude;
     }
 
     public void setDeliveryLatitude(double deliveryLatitude) {
@@ -66,7 +66,7 @@ public class Order implements Serializable {
     }
 
     public double getDeliveryLongitude() {
-        return deliveryLongitude;
+        return this.deliveryLongitude;
     }
 
     public void setDeliveryLongitude(double deliveryLongitude) {
@@ -74,7 +74,7 @@ public class Order implements Serializable {
     }
 
     public String getAssociatedCourierId() {
-        return associatedCourierId;
+        return this.associatedCourierId;
     }
 
     public void setAssociatedCourierId(String associatedCourierId) {
@@ -82,7 +82,7 @@ public class Order implements Serializable {
     }
 
     public Instant getCreatedAt() {
-        return createdAt;
+        return this.createdAt;
     }
 
     public void setCreatedAt(Instant createdAt) {
@@ -90,7 +90,7 @@ public class Order implements Serializable {
     }
 
     public String getStatus() {
-        return status;
+        return this.status;
     }
 
     public void setStatus(String status) {
@@ -98,7 +98,7 @@ public class Order implements Serializable {
     }
 
     public List<OrderItem> getItems() {
-        return items;
+        return this.items;
     }
 
     public void setItems(List<OrderItem> items) {
@@ -106,7 +106,7 @@ public class Order implements Serializable {
     }
 
     public double getTotalPrice() {
-        return totalPrice;
+        return this.totalPrice;
     }
 
     public void setTotalPrice(double totalPrice) {

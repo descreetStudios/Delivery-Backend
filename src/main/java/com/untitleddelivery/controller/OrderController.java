@@ -23,14 +23,14 @@ public class OrderController {
 	}
 
 	@PostMapping
-	public ResponseEntity<Void> createOrder(@RequestBody Order order) {
+	public ResponseEntity<String> createOrder(@RequestBody Order order) {
 		try {
 			if (order.getItems() == null || order.getItems().isEmpty()) {
 				log.warn("Order creation rejected: no items provided");
 				return ResponseEntity.badRequest().build();
 			}
 			locationService.createOrder(order);
-			return ResponseEntity.ok().build();
+			return ResponseEntity.ok(order.getOrderId());
 		} catch (Exception e) {
 			log.error("Error creating order", e);
 			return ResponseEntity.status(500).build();
