@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,7 @@ public class LocationService {
 		LocationService.class);
 	private final RedisTemplate<String, Object> redisTemplate;
 	private final LocationWebSocketHandler webSocketHandler;
+	private final OrderQueueService orderQueueService;
 	private static final String LOCATION_KEY_PREFIX = "courier:location:";
 	private static final int LOCATION_TTL_MINUTES = 5;
 
@@ -36,9 +38,12 @@ public class LocationService {
 
 	public LocationService(
 		RedisTemplate<String, Object> redisTemplate,
-		LocationWebSocketHandler webSocketHandler) {
+		LocationWebSocketHandler webSocketHandler,
+		@Lazy OrderQueueService orderQueueService
+	) {
 		this.redisTemplate = redisTemplate;
 		this.webSocketHandler = webSocketHandler;
+		this.orderQueueService = orderQueueService;
 
 		// Configure ObjectMapper for Instant serialization/deserialization
 		this.objectMapper = new ObjectMapper();
@@ -52,6 +57,20 @@ public class LocationService {
 
 		log.info("Updating location for courier: {}", location.getCourierId());
 
+		// Check if courier was delivering and is now idle (completed an order)
+		CourierLocation previousLocation = getCourierLocation(location.getCourierId());
+		boolean courierBecameAvailable = false;
+		if (previousLocation != null && previousLocation.getAssociatedOrderId() != null 
+		    && location.getAssociatedOrderId() == null) {
+			courierBecameAvailable = true;
+			log.info("Courier {} became available after completing order", location.getCourierId());
+		}
+		// Also check if courier is new (no previous location)
+		if (previousLocation == null) {
+			courierBecameAvailable = true;
+			log.info("New courier {} detected, triggering queue processing", location.getCourierId());
+		}
+
 		// Store in Redis
 		redisTemplate
 			.opsForValue()
@@ -63,6 +82,12 @@ public class LocationService {
 		webSocketHandler.broadcast(location);
 
 		log.info("Location broadcasted via WebSocket");
+
+		// Trigger queue processing if courier became available
+		if (courierBecameAvailable && orderQueueService != null) {
+			log.info("Triggering order queue processing for courier {}", location.getCourierId());
+			orderQueueService.triggerQueueProcessing();
+		}
 	}
 
 	public CourierLocation getCourierLocation(String courierId) {

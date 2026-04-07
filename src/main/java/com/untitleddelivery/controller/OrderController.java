@@ -2,10 +2,15 @@ package com.untitleddelivery.controller;
 
 import com.untitleddelivery.model.Order;
 import com.untitleddelivery.service.LocationService;
+import com.untitleddelivery.service.OrderQueueService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -17,20 +22,32 @@ public class OrderController {
 	);
 
 	private final LocationService locationService;
+	private final OrderQueueService orderQueueService;
 
-	public OrderController(LocationService locationService) {
+	public OrderController(LocationService locationService, OrderQueueService orderQueueService) {
 		this.locationService = locationService;
+		this.orderQueueService = orderQueueService;
 	}
 
 	@PostMapping
-	public ResponseEntity<String> createOrder(@RequestBody Order order) {
+	public ResponseEntity<Map<String, Object>> createOrder(@RequestBody Order order) {
 		try {
 			if (order.getItems() == null || order.getItems().isEmpty()) {
 				log.warn("Order creation rejected: no items provided");
 				return ResponseEntity.badRequest().build();
 			}
 			locationService.createOrder(order);
-			return ResponseEntity.ok(order.getOrderId());
+			
+			// Trigger auto-assignment
+			boolean assigned = orderQueueService.autoAssignCourier(order);
+			
+			// Return order ID and assignment status
+			Map<String, Object> response = new HashMap<>();
+			response.put("orderId", order.getOrderId());
+			response.put("assigned", assigned);
+			response.put("status", assigned ? "ASSIGNED" : "QUEUED");
+			
+			return ResponseEntity.ok(response);
 		} catch (Exception e) {
 			log.error("Error creating order", e);
 			return ResponseEntity.status(500).build();
@@ -89,5 +106,26 @@ public class OrderController {
 		return order != null
 			? ResponseEntity.ok(order)
 			: ResponseEntity.notFound().build();
+	}
+
+	@GetMapping("/queue/status")
+	public ResponseEntity<Map<String, Object>> getQueueStatus() {
+		Long queueSize = orderQueueService.getQueueSize();
+		List<String> queuedOrders = orderQueueService.getQueueOrders();
+		
+		Map<String, Object> response = new HashMap<>();
+		response.put("queueSize", queueSize);
+		response.put("orders", queuedOrders);
+		
+		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/queue/process")
+	public ResponseEntity<Map<String, String>> processQueue() {
+		orderQueueService.triggerQueueProcessing();
+		
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "Queue processing triggered");
+		return ResponseEntity.ok(response);
 	}
 }

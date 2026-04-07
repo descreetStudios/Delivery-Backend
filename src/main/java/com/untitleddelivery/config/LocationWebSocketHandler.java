@@ -231,6 +231,10 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		String status = (String) messageMap.get("status");
 		if (status == null) status = "ONLINE";
 
+		// Preserve existing associatedOrderId - location updates should NOT clear it
+		CourierLocation existingLocation = locationService.getCourierLocation(courierId);
+		String associatedOrderId = existingLocation != null ? existingLocation.getAssociatedOrderId() : null;
+
 		CourierLocation location = new CourierLocation(
 			courierId,
 			latNum.doubleValue(),
@@ -238,7 +242,7 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 			heading,
 			timestamp,
 			status,
-			null
+			associatedOrderId
 		);
 
 		// Track which courier this session belongs to
