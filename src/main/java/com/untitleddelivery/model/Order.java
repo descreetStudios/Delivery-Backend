@@ -7,10 +7,8 @@ import java.util.List;
 
 public class Order implements Serializable {
     private String orderId;
-    private double pickupLatitude;
-    private double pickupLongitude;
-    private double deliveryLatitude;
-    private double deliveryLongitude;
+    private double[] restaurant = new double[2];
+    private double[] destination = new double[2];
     private String associatedCourierId;
     private Instant createdAt;
     private String status; // PENDING, ASSIGNED, DELIVERING, COMPLETED, CANCELLED
@@ -23,10 +21,10 @@ public class Order implements Serializable {
     public Order(double pickupLatitude, double pickupLongitude,
             double deliveryLatitude, double deliveryLongitude, ArrayList<OrderItem> orderItems, double totalPrice) {
         this.orderId = String.valueOf(Instant.now().toEpochMilli());
-        this.pickupLatitude = pickupLatitude;
-        this.pickupLongitude = pickupLongitude;
-        this.deliveryLatitude = deliveryLatitude;
-        this.deliveryLongitude = deliveryLongitude;
+        this.restaurant[0] = pickupLatitude;
+        this.restaurant[1] = pickupLongitude;
+        this.destination[0] = deliveryLatitude;
+        this.destination[1] = deliveryLongitude;
         this.createdAt = Instant.now();
         this.status = "PENDING";
         this.items = new ArrayList<>();
@@ -41,36 +39,36 @@ public class Order implements Serializable {
         this.orderId = orderId;
     }
 
-    public double getPickupLatitude() {
-        return this.pickupLatitude;
+        public double getPickupLatitude() {
+        return this.restaurant[0];
     }
 
     public void setPickupLatitude(double pickupLatitude) {
-        this.pickupLatitude = pickupLatitude;
+        this.restaurant[0] = pickupLatitude;
     }
 
     public double getPickupLongitude() {
-        return this.pickupLongitude;
+        return this.restaurant[1];
     }
 
     public void setPickupLongitude(double pickupLongitude) {
-        this.pickupLongitude = pickupLongitude;
+        this.restaurant[1] = pickupLongitude;
     }
 
-    public double getDeliveryLatitude() {
-        return this.deliveryLatitude;
+        public double getDeliveryLatitude() {
+        return this.destination[0];
     }
 
     public void setDeliveryLatitude(double deliveryLatitude) {
-        this.deliveryLatitude = deliveryLatitude;
+        this.destination[0] = deliveryLatitude;
     }
 
     public double getDeliveryLongitude() {
-        return this.deliveryLongitude;
+        return this.destination[1];
     }
 
     public void setDeliveryLongitude(double deliveryLongitude) {
-        this.deliveryLongitude = deliveryLongitude;
+        this.destination[1] = deliveryLongitude;
     }
 
     public String getAssociatedCourierId() {
