@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.untitleddelivery.model.CourierLocation;
 import com.untitleddelivery.model.Order;
+import com.untitleddelivery.model.Location;
 import com.untitleddelivery.util.DistanceCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,17 +198,12 @@ public class OrderQueueService {
 		}
 	}
 
-	/**
-	 * Find the closest available courier to the pickup location.
-	 * @param pickupLatitude Pickup latitude
-	 * @param pickupLongitude Pickup longitude
-	 * @return The closest courier or null if none available
-	 */
-	public CourierLocation findClosestAvailableCourier(double pickupLatitude, double pickupLongitude) {
+	public CourierLocation findClosestAvailableCourier(Location restaurant) {
 		List<CourierLocation> availableCouriers = getAvailableCouriers();
 
 		if (availableCouriers.isEmpty()) {
-			log.info("No available couriers found for pickup location ({}, {})", pickupLatitude, pickupLongitude);
+			log.info("No available couriers found for pickup location ({}, {})",
+				restaurant.getLatitude(), restaurant.getLongitude());
 			return null;
 		}
 
@@ -217,7 +213,7 @@ public class OrderQueueService {
 
 		for (CourierLocation courier : availableCouriers) {
 			double distance = DistanceCalculator.calculateDistance(
-				pickupLatitude, pickupLongitude,
+				restaurant.getLatitude(), restaurant.getLongitude(),
 				courier.getLatitude(), courier.getLongitude()
 			);
 
@@ -244,8 +240,7 @@ public class OrderQueueService {
 		log.info("Attempting to auto-assign courier for order {}", order.getOrderId());
 
 		CourierLocation closestCourier = findClosestAvailableCourier(
-			order.getPickupLatitude(),
-			order.getPickupLongitude()
+			order.getRestaurant()
 		);
 
 		if (closestCourier != null) {
@@ -295,8 +290,7 @@ public class OrderQueueService {
 
 				// Try to find an available courier
 				CourierLocation closestCourier = findClosestAvailableCourier(
-					order.getPickupLatitude(),
-					order.getPickupLongitude()
+					order.getRestaurant()
 				);
 
 				if (closestCourier != null) {
