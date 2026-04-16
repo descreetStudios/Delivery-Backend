@@ -94,6 +94,14 @@ public class OrderQueueService {
 				throw new IllegalStateException("Order queue is full. Please try again later.");
 			}
 
+			// Update order status to QUEUED before adding to queue
+			Order order = locationService.getOrder(orderId);
+			if (order != null && !"QUEUED".equals(order.getStatus())) {
+				order.setStatus("QUEUED");
+				locationService.createOrder(order);
+				log.info("Order {} status updated to QUEUED", orderId);
+			}
+
 			// Add to the end of the queue (right push for FIFO)
 			redisTemplate.opsForList().rightPush(ORDER_QUEUE_KEY, orderId);
 			// Set TTL on the queue key
@@ -325,5 +333,13 @@ public class OrderQueueService {
 	 */
 	public void triggerQueueProcessing() {
 		processOrderQueue();
+	}
+
+	/**
+	 * Update order status to DELIVERING when courier confirms pickup.
+	 * @param orderId The order ID
+	 */
+	public void updateOrderToDelivering(String orderId) {
+		locationService.updateOrderToDelivering(orderId);
 	}
 }

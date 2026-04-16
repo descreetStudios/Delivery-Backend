@@ -114,11 +114,14 @@ public class LocationService {
 		if (order.getOrderId() == null) {
 			order.setOrderId(String.valueOf(Instant.now().toEpochMilli()));
 			order.setCreatedAt(Instant.now());
-			order.setStatus("PENDING");
+			// Status defaults to PENDING if not already set
+			if (order.getStatus() == null) {
+				order.setStatus("PENDING");
+			}
 		}
 		String key = ORDER_KEY_PREFIX + order.getOrderId();
 
-		log.info("Creating order: {}", order.getOrderId());
+		log.info("Creating order: {} with status: {}", order.getOrderId(), order.getStatus());
 
 		// Store the order
 		redisTemplate
@@ -194,8 +197,9 @@ public class LocationService {
 					throw new IllegalStateException("Order " + orderId + " already assigned to courier " + order.getAssociatedCourierId());
 				}
 
-				// Update the order with the courier
+				// Update the order with the courier and status
 				order.setAssociatedCourierId(courierId);
+				order.setStatus("FETCHING");
 				createOrder(order);
 
 				// Update the courier's location record with the order ID
@@ -205,7 +209,7 @@ public class LocationService {
 					updateCourierLocation(location);
 				}
 
-				log.info("Assigned courier {} to order {}", courierId, orderId);
+				log.info("Assigned courier {} to order {} with status FETCHING", courierId, orderId);
 			} finally {
 				// Release order lock
 				redisTemplate.delete(orderLockKey);
@@ -219,8 +223,16 @@ public class LocationService {
 	public void completeOrder(String orderId, String courierId) {
 		Order order = getOrder(orderId);
 		if (order != null) {
+			log.info("Completing order {} with current status: {}", orderId, order.getStatus());
+			// Set DELIVERED status before COMPLETED
+			if ("DELIVERING".equals(order.getStatus())) {
+				order.setStatus("DELIVERED");
+				createOrder(order);
+				log.info("Order {} status updated to DELIVERED", orderId);
+			}
 			order.setStatus("COMPLETED");
 			createOrder(order);
+			log.info("Order {} status updated to COMPLETED", orderId);
 		}
 
 		// Remove the order from the courier's location record
@@ -242,5 +254,37 @@ public class LocationService {
 
 		// Return the active order for this courier
 		return getOrder(location.getAssociatedOrderId());
+	}
+
+	/**
+	 * Update order status to DELIVERING when courier has picked up the order.
+	 * This should be called when the courier confirms pickup at the restaurant.
+	 * @param orderId The order ID
+	 */
+	public void updateOrderToDelivering(String orderId) {
+		Order order = getOrder(orderId);
+		if (order != null) {
+			// Only transition from FETCHING to DELIVERING
+			if ("FETCHING".equals(order.getStatus())) {
+				order.setStatus("DELIVERING");
+				createOrder(order);
+				log.info("Order {} status updated to DELIVERING", orderId);
+			} else {
+				log.warn("Cannot transition order {} to DELIVERING from status: {}", orderId, order.getStatus());
+			}
+		}
+	}
+
+	/**
+	 * Update order status to QUEUED when it's added to the queue.
+	 * @param orderId The order ID
+	 */
+	public void updateOrderToQueued(String orderId) {
+		Order order = getOrder(orderId);
+		if (order != null) {
+			order.setStatus("QUEUED");
+			createOrder(order);
+			log.info("Order {} status updated to QUEUED", orderId);
+		}
 	}
 }

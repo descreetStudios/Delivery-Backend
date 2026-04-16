@@ -6,21 +6,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Order implements Serializable {
+
     private String orderId;
     private Location restaurant;
     private Location destination;
     private String associatedCourierId;
     private Instant createdAt;
-    private String status; // PENDING, ASSIGNED, DELIVERING, COMPLETED, CANCELLED
+    private String status; // PENDING, QUEUED, FETCHING, DELIVERING, DELIVERED, COMPLETED
     private List<OrderItem> items;
     private double totalPrice;
 
-    public Order() {
-    }
+    public Order() {}
 
-    public Order(Location restaurant, Location destination,
-            ArrayList<OrderItem> orderItems, double totalPrice) 
-    {
+    public Order(
+        Location restaurant,
+        Location destination,
+        ArrayList<OrderItem> orderItems,
+        double totalPrice
+    ) {
         this.orderId = String.valueOf(Instant.now().toEpochMilli());
         this.restaurant = restaurant;
         this.destination = destination;

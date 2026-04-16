@@ -45,7 +45,7 @@ public class OrderController {
 			Map<String, Object> response = new HashMap<>();
 			response.put("orderId", order.getOrderId());
 			response.put("assigned", assigned);
-			response.put("status", assigned ? "ASSIGNED" : "QUEUED");
+			response.put("status", assigned ? "FETCHING" : "QUEUED");
 			
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
@@ -118,6 +118,19 @@ public class OrderController {
 		response.put("orders", queuedOrders);
 		
 		return ResponseEntity.ok(response);
+	}
+
+	@PutMapping("/{orderId}/delivering")
+	public ResponseEntity<Void> updateOrderToDelivering(
+		@PathVariable String orderId
+	) {
+		try {
+			orderQueueService.updateOrderToDelivering(orderId);
+			return ResponseEntity.ok().build();
+		} catch (Exception e) {
+			log.error("Error updating order {} to DELIVERING", orderId, e);
+			return ResponseEntity.status(500).build();
+		}
 	}
 
 	@PostMapping("/queue/process")
