@@ -114,9 +114,9 @@ public class LocationService {
 		if (order.getOrderId() == null) {
 			order.setOrderId(String.valueOf(Instant.now().toEpochMilli()));
 			order.setCreatedAt(Instant.now());
-			// Status defaults to PENDING if not already set
+			// Status defaults to QUEUED if not already set
 			if (order.getStatus() == null) {
-				order.setStatus("PENDING");
+				order.setStatus("QUEUED");
 			}
 		}
 		String key = ORDER_KEY_PREFIX + order.getOrderId();
@@ -224,12 +224,6 @@ public class LocationService {
 		Order order = getOrder(orderId);
 		if (order != null) {
 			log.info("Completing order {} with current status: {}", orderId, order.getStatus());
-			// Set DELIVERED status before COMPLETED
-			if ("DELIVERING".equals(order.getStatus())) {
-				order.setStatus("DELIVERED");
-				createOrder(order);
-				log.info("Order {} status updated to DELIVERED", orderId);
-			}
 			order.setStatus("COMPLETED");
 			createOrder(order);
 			log.info("Order {} status updated to COMPLETED", orderId);

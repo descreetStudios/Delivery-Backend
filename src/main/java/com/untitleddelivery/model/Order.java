@@ -12,7 +12,7 @@ public class Order implements Serializable {
     private Location destination;
     private String associatedCourierId;
     private Instant createdAt;
-    private String status; // PENDING, QUEUED, FETCHING, DELIVERING, DELIVERED, COMPLETED
+    private String status; // QUEUED, FETCHING, DELIVERING, COMPLETED
     private List<OrderItem> items;
     private double totalPrice;
 
@@ -28,7 +28,7 @@ public class Order implements Serializable {
         this.restaurant = restaurant;
         this.destination = destination;
         this.createdAt = Instant.now();
-        this.status = "PENDING";
+        this.status = "QUEUED";
         this.items = new ArrayList<>();
         this.totalPrice = totalPrice;
     }

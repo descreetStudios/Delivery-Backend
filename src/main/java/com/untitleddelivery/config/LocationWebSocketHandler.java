@@ -86,7 +86,7 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		sessions.remove(session.getId());
 
 		log.info(
-			"🔌 WebSocket connection closed: {} (Total connections: {})",
+			"WebSocket connection closed: {} (Total connections: {})",
 			session.getId(),
 			sessions.size()
 		);
@@ -153,7 +153,7 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 			subscribers.add(session.getId());
 
 			log.info(
-				"✅ Client {} subscribed to courier: {}",
+				"Client {} subscribed to courier: {}",
 				session.getId(),
 				courierId
 			);
@@ -254,7 +254,7 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		// Track which courier this session belongs to
 		sessionCourierIds.put(session.getId(), courierId);
 
-		log.info("📍 Courier {} sending location update via WebSocket", courierId);
+		log.info("Courier {} sending location update via WebSocket", courierId);
 
 		// Store and broadcast to subscribers
 		locationService.updateCourierLocation(location);
