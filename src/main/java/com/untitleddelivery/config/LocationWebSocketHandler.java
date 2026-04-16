@@ -208,7 +208,13 @@ public class LocationWebSocketHandler extends TextWebSocketHandler {
 		Map<String, Object> messageMap
 	) {
 		String courierId = (String) messageMap.get("courierId");
-		if (courierId == null || courierId.trim().isEmpty()) {
+		
+		if (courierId.equals("courier0000")) {
+			log.warn("Courier is not enabled");
+			return;
+		}
+		
+		if (courierId == null ||courierId.trim().isEmpty()) {
 			log.warn("Location update missing courierId from session: {}", session.getId());
 			return;
 		}
